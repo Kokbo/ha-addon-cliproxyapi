@@ -1,0 +1,31 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code / agent scratch
+.claude/
+
+# Build / runtime artifacts (in case anyone builds the binary locally).
+# NOTE: do NOT add `/CLIProxyAPI` — on case-insensitive filesystems (Windows,
+# default macOS) that pattern collides with the `cliproxyapi/` addon folder
+# and hides the whole addon. The build runs in Docker, so leaving stray
+# binaries out of the ignore list is fine.
+*.exe
+*.bin
+
+# Logs
+*.log
+
+# Local secrets — never commit OAuth tokens.
+# (cliproxyapi/config.yaml is the HA addon manifest and IS committed;
+#  the runtime config with api-keys lives on the HA host under
+#  /config/cliproxyapi/ and never touches this repo.)
+.cli-proxy-api/
