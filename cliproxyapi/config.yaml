@@ -1,5 +1,5 @@
 name: CLIProxyAPI
-version: "0.1.0"
+version: "0.1.1"
 slug: cliproxyapi
 description: >-
   Wraps router-for-me/CLIProxyAPI as a Home Assistant addon. Exposes an

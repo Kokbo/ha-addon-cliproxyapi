@@ -1,17 +1,22 @@
 # syntax=docker/dockerfile:1.6
 
+# Global ARGs — declared before any FROM so they are usable in FROM lines.
+# BUILD_FROM and BUILD_ARCH are injected by the HA addon builder.
+ARG BUILD_FROM
+ARG BUILD_ARCH
+ARG CLIPROXYAPI_VERSION=main
+
 # -----------------------------------------------------------------------------
-# Stage 1: build CLIProxyAPI from source
-#
+# Stage 1: build CLIProxyAPI from source.
 # Upstream go.mod currently requires Go >= 1.26.0, so we use the matching
 # toolchain image. CLIPROXYAPI_VERSION selects a branch or tag to clone.
-# BUILD_ARCH is provided by the Home Assistant addon builder
-# (aarch64 / armv7 / amd64) and is mapped to GOARCH/GOARM below.
+# BUILD_ARCH (aarch64 / armv7 / amd64) is mapped to GOARCH/GOARM below.
+# Global ARGs go out of scope at FROM, so we re-declare the ones we need.
 # -----------------------------------------------------------------------------
 FROM golang:1.26-alpine AS builder
 
-ARG CLIPROXYAPI_VERSION=main
-ARG BUILD_ARCH=aarch64
+ARG CLIPROXYAPI_VERSION
+ARG BUILD_ARCH
 
 RUN apk add --no-cache git ca-certificates
 
@@ -35,11 +40,10 @@ RUN case "${BUILD_ARCH}" in \
 # -----------------------------------------------------------------------------
 # Stage 2: HA-base runtime image
 # -----------------------------------------------------------------------------
-ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:3.19
 FROM ${BUILD_FROM}
 
 COPY --from=builder /out/CLIProxyAPI /usr/bin/CLIProxyAPI
-COPY config.example.yaml /usr/share/cliproxyapi/config.example.yaml
+COPY cliproxyapi.example.yaml /usr/share/cliproxyapi/config.example.yaml
 COPY run.sh /run.sh
 RUN chmod +x /run.sh /usr/bin/CLIProxyAPI
 
