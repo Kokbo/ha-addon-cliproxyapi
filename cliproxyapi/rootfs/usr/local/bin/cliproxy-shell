@@ -3,13 +3,15 @@ export PATH=/usr/local/bin:/usr/bin:/bin
 export CLIPROXY_AUTH_DIR=/config/cliproxyapi/.cli-proxy-api
 export CLIPROXY_CONFIG=/config/cliproxyapi/config.yaml
 
+cd "${HOME:-/root}" 2>/dev/null || cd /
+
 cat <<'BANNER'
 =========================================================
  CLIProxyAPI auth shell
  Config:    /config/cliproxyapi/config.yaml      ($CLIPROXY_CONFIG)
  Auth dir:  /config/cliproxyapi/.cli-proxy-api/  ($CLIPROXY_AUTH_DIR)
 
- Common commands:
+ Helpers (all in /usr/local/bin, tab-completable):
    claude-login        Claude Code OAuth (paste-back flow)
    codex-login         Codex device-code flow (no callback needed)
    codex-oauth-login   Codex web OAuth (needs reachable callback port)
@@ -19,24 +21,10 @@ cat <<'BANNER'
    list-auths          show token files in the auth dir
    edit-config         vi the runtime config
    restart-api         bounce the CLIProxyAPI server
-   show-api-log        tail the most recent API service output
+   show-api-log        tail the API service log (if any)
 
  After login completes successfully, run: restart-api
 =========================================================
 BANNER
-
-bin=/usr/bin/CLIProxyAPI
-alias claude-login="$bin --config \$CLIPROXY_CONFIG --claude-login --no-browser"
-alias codex-login="$bin --config \$CLIPROXY_CONFIG --codex-device-login --no-browser"
-alias codex-oauth-login="$bin --config \$CLIPROXY_CONFIG --codex-login --no-browser"
-alias gemini-login="$bin --config \$CLIPROXY_CONFIG --login --no-browser"
-alias antigravity-login="$bin --config \$CLIPROXY_CONFIG --antigravity-login --no-browser"
-alias kimi-login="$bin --config \$CLIPROXY_CONFIG --kimi-login --no-browser"
-alias list-auths='ls -la $CLIPROXY_AUTH_DIR'
-alias edit-config='${EDITOR:-vi} $CLIPROXY_CONFIG'
-alias restart-api='s6-svc -r /run/s6/services/cliproxyapi && echo "cliproxyapi: restart requested"'
-alias show-api-log='tail -n 200 /var/log/s6/cliproxyapi/* 2>/dev/null || echo "(no service log on disk; check addon logs in HA)"'
-
-shopt -s expand_aliases
 
 exec bash --login -i

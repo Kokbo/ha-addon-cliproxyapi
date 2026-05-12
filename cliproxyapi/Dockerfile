@@ -52,11 +52,9 @@ COPY rootfs/ /
 
 RUN chmod +x \
         /usr/bin/CLIProxyAPI \
-        /usr/local/bin/cliproxy-shell \
-        /etc/cont-init.d/00-cliproxyapi-init.sh \
-        /etc/services.d/ttyd/run \
-        /etc/services.d/cliproxyapi/run \
-        /etc/services.d/cliproxyapi/finish
+        /usr/local/bin/* \
+        /etc/cont-init.d/* \
+        /etc/services.d/*/run
 
 # API on the LAN, ttyd auth shell behind HA ingress on 7681.
 EXPOSE 8317 7681

@@ -1,0 +1,7 @@
+#!/bin/bash
+: "${CLIPROXY_AUTH_DIR:=/config/cliproxyapi/.cli-proxy-api}"
+if [ ! -d "$CLIPROXY_AUTH_DIR" ]; then
+    echo "Auth dir does not exist yet: $CLIPROXY_AUTH_DIR" >&2
+    exit 1
+fi
+exec ls -la "$CLIPROXY_AUTH_DIR"

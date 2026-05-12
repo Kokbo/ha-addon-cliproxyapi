@@ -1,0 +1,3 @@
+#!/bin/bash
+: "${CLIPROXY_CONFIG:=/config/cliproxyapi/config.yaml}"
+exec /usr/bin/CLIProxyAPI --config "$CLIPROXY_CONFIG" --codex-login --no-browser "$@"

@@ -1,0 +1,26 @@
+#!/bin/bash
+# Bounce the CLIProxyAPI service so it picks up new tokens or a new config.
+# s6-overlay's scandir path differs between versions; probe the likely spots
+# before falling back to SIGTERM (the supervisor will relaunch the daemon).
+
+for svc in \
+    /run/service/cliproxyapi \
+    /run/s6/legacy-services/cliproxyapi \
+    /run/s6-rc/servicedirs/cliproxyapi \
+    /var/run/s6/services/cliproxyapi; do
+    if [ -d "$svc" ]; then
+        if s6-svc -r "$svc" 2>/dev/null; then
+            echo "cliproxyapi: restart requested via $svc"
+            exit 0
+        fi
+    fi
+done
+
+echo "cliproxyapi: no s6 service dir found; sending SIGTERM to the process" >&2
+if pkill -TERM -x CLIProxyAPI; then
+    echo "cliproxyapi: SIGTERM sent — the supervisor should relaunch it shortly"
+    exit 0
+fi
+
+echo "cliproxyapi: process not running and no scandir located" >&2
+exit 1

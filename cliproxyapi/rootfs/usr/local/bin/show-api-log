@@ -1,0 +1,14 @@
+#!/bin/bash
+# Tail the API service's stdout if a log file exists.
+for f in /var/log/s6/cliproxyapi/current /var/log/cliproxyapi/current; do
+    if [ -f "$f" ]; then
+        exec tail -n 200 -f "$f"
+    fi
+done
+
+cat <<'EOF'
+No per-service log file is being written. View the addon log instead:
+  Home Assistant → Settings → Add-ons → CLIProxyAPI → Log
+
+(Both the ttyd auth shell and the API server stream to the addon's main log.)
+EOF
