@@ -42,11 +42,24 @@ RUN case "${BUILD_ARCH}" in \
 # -----------------------------------------------------------------------------
 FROM ${BUILD_FROM}
 
+# ttyd: in-addon web terminal for OAuth bootstrap (exposed via HA ingress).
+# bash:  cliproxy-shell entrypoint.
+RUN apk add --no-cache ttyd bash
+
 COPY --from=builder /out/CLIProxyAPI /usr/bin/CLIProxyAPI
 COPY cliproxyapi.example.yaml /usr/share/cliproxyapi/config.example.yaml
-COPY run.sh /run.sh
-RUN chmod +x /run.sh /usr/bin/CLIProxyAPI
+COPY rootfs/ /
 
-EXPOSE 8317
+RUN chmod +x \
+        /usr/bin/CLIProxyAPI \
+        /usr/local/bin/cliproxy-shell \
+        /etc/cont-init.d/00-cliproxyapi-init.sh \
+        /etc/services.d/ttyd/run \
+        /etc/services.d/cliproxyapi/run \
+        /etc/services.d/cliproxyapi/finish
 
-CMD ["/run.sh"]
+# API on the LAN, ttyd auth shell behind HA ingress on 7681.
+EXPOSE 8317 7681
+
+# No CMD — HA base image's s6-overlay init runs /etc/cont-init.d/* once,
+# then supervises every service in /etc/services.d/.

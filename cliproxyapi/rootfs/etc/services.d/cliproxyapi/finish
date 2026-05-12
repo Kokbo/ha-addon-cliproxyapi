@@ -1,0 +1,5 @@
+#!/usr/bin/execlineb -S0
+# Default s6-overlay finish: bring the whole supervision tree down if and only
+# if the service was stopped intentionally; otherwise, the supervisor restarts
+# this service automatically.
+s6-svc -O /run/s6/services/cliproxyapi

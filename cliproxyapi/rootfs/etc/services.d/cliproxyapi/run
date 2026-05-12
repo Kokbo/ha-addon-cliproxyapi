@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv bashio
+
+bashio::log.info "Starting CLIProxyAPI server on :8317"
+
+exec /usr/bin/CLIProxyAPI --config /config/cliproxyapi/config.yaml

@@ -2,3 +2,9 @@
 
 *.sh text eol=lf
 Dockerfile text eol=lf
+
+# s6-overlay service scripts have no extension; force LF or s6 won't exec them
+**/cont-init.d/* text eol=lf
+**/services.d/**/run text eol=lf
+**/services.d/**/finish text eol=lf
+**/usr/local/bin/* text eol=lf

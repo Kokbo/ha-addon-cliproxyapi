@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bashio
+
+bashio::log.info "Starting ttyd auth shell on :7681 (HA ingress)"
+
+exec ttyd \
+    --port 7681 \
+    --interface 0.0.0.0 \
+    --writable \
+    --base-path / \
+    /usr/local/bin/cliproxy-shell

@@ -16,73 +16,94 @@ sessions through standard OpenAI- or Anthropic-shaped HTTP endpoints. The
 addon runs the server alongside Home Assistant, persisting OAuth tokens and
 config under `/config/cliproxyapi/`.
 
-## Installation (local addon repository)
+A second process — an `ttyd` web terminal exposed via HA ingress — is the
+recommended way to bootstrap OAuth credentials. No SSH, no Samba copy, no
+local CLIProxyAPI install required.
 
-1. SSH or Samba into your Home Assistant host.
-2. Copy this folder (the directory containing `config.yaml`, `Dockerfile`,
-   `run.sh`) into `/addons/cliproxyapi/` on the host.
-3. In Home Assistant, open **Settings → Add-ons → Add-on Store**, click the
-   three-dot menu → **Check for updates**. "Local add-ons" should now list
-   **CLIProxyAPI**.
-4. Open the addon and click **Install**. The first build clones and compiles
-   the upstream Go binary — expect several minutes on a CM4.
-5. Start the addon. The first start writes a default config and immediately
-   logs a warning telling you to edit it — that's expected.
+## Installation
 
-To pin a specific upstream version, edit `CLIPROXYAPI_VERSION` in
-[build.yaml](build.yaml) (default: `main`) before installing.
+1. In Home Assistant, **Settings → Add-ons → Add-on Store**, three-dot menu →
+   **Repositories**. Add this repo's Git URL, or copy the parent directory
+   into `/addons/` and use **Check for updates**.
+2. Open **CLIProxyAPI** and click **Install**. The first build clones and
+   compiles the upstream Go server from source; budget several minutes on a
+   CM4.
+3. Start the addon. On first boot it creates `/config/cliproxyapi/` with a
+   default config and an empty auth dir, and logs a warning telling you to
+   bootstrap OAuth.
 
-## First-time setup: obtaining OAuth tokens
+To pin a specific upstream version, change the `CLIPROXYAPI_VERSION` default
+in [Dockerfile](Dockerfile) (default: `main`) before installing.
 
-The Claude Code / Codex / Gemini OAuth flows require a browser, which Home
-Assistant doesn't have. Do the auth dance on a regular workstation, then copy
-the resulting token files to the addon's auth directory.
+## First-time setup: OAuth via the in-addon web terminal
 
-1. On a machine with a browser, install the Claude Code CLI and sign in:
+1. With the addon running, click **Open Web UI**. A terminal opens in your
+   browser, authenticated via HA ingress. A banner lists the available
+   commands.
+
+2. Run the login command for the provider you want:
+
+   | Command             | Provider / flow                                  |
+   |---------------------|--------------------------------------------------|
+   | `claude-login`      | Claude (Anthropic) — paste-back code, no callback|
+   | `codex-login`       | Codex — **device code flow** (recommended)       |
+   | `codex-oauth-login` | Codex — OAuth web flow (needs reachable callback)|
+   | `gemini-login`      | Google / Gemini — OAuth (see Gemini caveat)      |
+   | `antigravity-login` | Antigravity (Google) — OAuth                     |
+   | `kimi-login`        | Kimi (Moonshot) — OAuth                          |
+
+3. The CLI prints a URL. Open it on any device with a browser, sign in,
+   complete the consent prompt, then either copy the displayed code back into
+   the terminal (Claude, device-code flows) or wait for the callback
+   (OAuth-callback flows — see Gemini caveat below).
+
+4. `list-auths` should now show `*.json` files in
+   `/config/cliproxyapi/.cli-proxy-api/`.
+
+5. Before the API is useful you must also set at least one bearer token.
+   In the same terminal:
    ```
-   npm install -g @anthropic-ai/claude-code
-   claude
+   edit-config
    ```
-   Complete the OAuth flow in the browser window it opens.
+   replace the `your-api-key-N` placeholders under `api-keys:` with a long,
+   random secret, save, and exit.
 
-2. CLIProxyAPI looks for token files under `~/.cli-proxy-api/` by default,
-   but the Claude Code CLI itself writes to `~/.claude/`. Check both:
-   - macOS / Linux: `~/.cli-proxy-api/` and `~/.claude/`
-   - Windows: `%USERPROFILE%\.cli-proxy-api\` and `%USERPROFILE%\.claude\`
+6. `restart-api`. The CLIProxyAPI service bounces and picks up the new tokens
+   and config. The API is now live on `http://<ha-ip>:8317`.
 
-   You may need to run CLIProxyAPI once locally (`./CLIProxyAPI --login`-style
-   flows documented in the upstream README) to mint the
-   `~/.cli-proxy-api/*.json` files it expects. Follow the auth instructions
-   in the [upstream README](https://github.com/router-for-me/CLIProxyAPI)
-   for the specific provider you want (Claude, Codex, Gemini, Antigravity).
+### Gemini OAuth caveat
 
-3. Copy every `*.json` file produced under `~/.cli-proxy-api/` into the
-   addon's auth directory on the HA host:
-   ```
-   /config/cliproxyapi/.cli-proxy-api/
-   ```
-   Use the Samba share addon, the SSH/File editor addon, or `scp`.
+`gemini-login` (Google OAuth) wants to redirect back to a `localhost:<port>`
+URL on the machine that opened the browser. If you run it from the HA
+terminal, that callback will hit the addon container — not your laptop — and
+likely fail. Two workarounds:
 
-4. Restart the CLIProxyAPI addon. The startup log should list the loaded
-   credentials.
+- **SSH local-forward** the callback port from your workstation to the addon
+  before clicking the OAuth URL, e.g.
+  `ssh -L 8085:127.0.0.1:8085 <ha-host>`. Use
+  `--oauth-callback-port 8085` if you need to pin the port.
+- **Do the auth on a workstation**, then copy the resulting
+  `~/.cli-proxy-api/*.json` files into `/config/cliproxyapi/.cli-proxy-api/`
+  on the HA host (via the SSH or Samba addon).
+
+`codex-login` is similar; prefer `codex-login` (device code flow) which
+doesn't need a callback.
 
 ## Configuration
 
-After the first start, edit `/config/cliproxyapi/config.yaml`. The two fields
-you almost certainly need to change:
+Runtime config lives at `/config/cliproxyapi/config.yaml`. The example seeded
+on first boot has only the obvious fields enabled; everything else is
+commented out. The fields you almost certainly need to touch:
 
-- **`api-keys`** — replace the `your-api-key-N` placeholders with at least one
-  long, random secret. Clients authenticate by sending this as a bearer token
-  (`Authorization: Bearer <your-key>` for OpenAI-shaped requests, or
-  `x-api-key: <your-key>` for Anthropic-shaped requests).
+- **`api-keys`** — replace placeholders with long, random secrets. Clients
+  send one of these as `Authorization: Bearer <key>` (OpenAI-shaped) or
+  `x-api-key: <key>` (Anthropic-shaped).
 - **`auth-dir`** — already preset to `/config/cliproxyapi/.cli-proxy-api`.
   Leave it alone unless you have a reason.
 
-Optional sections (Gemini API keys, Codex/Claude/Vertex API keys, OpenAI
-compatibility providers, payload rewriting, model aliases, etc.) are all
-commented out in the example. Uncomment and fill in only what you need.
-
-Restart the addon after editing `config.yaml`.
+Optional sections (Gemini/Codex/Claude/Vertex API keys, OpenAI compatibility
+providers, payload rewriting, model aliases, etc.) are all commented out in
+the example. Uncomment and fill in only what you need, then `restart-api`.
 
 ## Usage
 
@@ -93,7 +114,7 @@ Point any OpenAI- or Anthropic-compatible client at the addon:
 - Anthropic-style endpoints: `/v1/messages`, ...
 - Auth: bearer token / `x-api-key` set to one of your `api-keys`.
 
-Quick smoke test from another machine on the LAN:
+Smoke test from any LAN client:
 
 ```
 curl -H "Authorization: Bearer your-api-key-1" \
@@ -105,25 +126,22 @@ Known-good clients: Open WebUI, Cline (VS Code), Continue, LibreChat, plain
 
 ## Token refresh and maintenance
 
-OAuth tokens expire. CLIProxyAPI refreshes them in the background while they
-remain valid, but if a refresh token is itself revoked or expires, requests
-will start failing with auth errors in the addon log. When that happens:
+OAuth tokens expire; CLIProxyAPI refreshes them silently while their refresh
+tokens remain valid. If a refresh token is revoked or expires you'll see auth
+errors in the addon log. To recover:
 
-1. Re-run the OAuth flow on a browser machine (step 1–2 of "First-time
-   setup").
-2. Replace the JSON files under
-   `/config/cliproxyapi/.cli-proxy-api/` with the new ones.
-3. Restart the addon.
+1. **Open Web UI**, re-run the relevant `*-login` command.
+2. `restart-api`.
 
 Keep a backup of `/config/cliproxyapi/` — losing the auth directory means
 re-doing the OAuth dance for every provider.
 
 ## Updating CLIProxyAPI
 
-The upstream version is pinned by the `CLIPROXYAPI_VERSION` build arg in
-[build.yaml](build.yaml). To upgrade:
+The upstream version is pinned by `ARG CLIPROXYAPI_VERSION=main` in
+[Dockerfile](Dockerfile). To upgrade:
 
-1. Edit `build.yaml`, change `CLIPROXYAPI_VERSION` to the tag or branch you
-   want (e.g. `v7.4.0`, or leave at `main`).
-2. Bump `version` in `config.yaml` so Home Assistant offers a "Rebuild".
+1. Edit `Dockerfile`, change the `CLIPROXYAPI_VERSION` default to the tag or
+   branch you want (e.g. `v7.4.0`).
+2. Bump `version` in [config.yaml](config.yaml) so HA offers a Rebuild.
 3. Rebuild from the addon page.
