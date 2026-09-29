@@ -34,4 +34,16 @@ fi
 
 bashio::log.info "Auth dir:   ${AUTH_DIR}"
 bashio::log.info "Config:     ${CONFIG_FILE}"
-bashio::log.info "Auth shell: click \"Open Web UI\" to bootstrap OAuth credentials."
+
+# Upstream's web management panel is the easiest way to log in to providers;
+# it needs a management secret-key, and allow-remote to be used from the LAN.
+if grep -qE '^[[:space:]]+secret-key:[[:space:]]*"?[^"[:space:]#]' "${CONFIG_FILE}"; then
+    if grep -qE '^[[:space:]]+allow-remote:[[:space:]]*true' "${CONFIG_FILE}"; then
+        bashio::log.info "Web panel:  http://<ha-ip>:8317/management.html (log in with your management secret-key)"
+    else
+        bashio::log.info "Web panel:  secret-key is set but allow-remote is false; set allow-remote: true to use http://<ha-ip>:8317/management.html from your LAN."
+    fi
+else
+    bashio::log.info "Web panel:  disabled. Set remote-management secret-key + allow-remote: true to log in to providers from your browser (see README)."
+fi
+bashio::log.info "Auth shell: click \"Open Web UI\" for the terminal (edit-config, gemini-login, ...)."

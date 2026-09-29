@@ -25,6 +25,10 @@ cat <<'BANNER'
    show-api-log        tail the API service log (if any)
 
  After login completes successfully, run: restart-api
+
+ Easier: log in from your browser via the web panel at
+   http://<ha-ip>:8317/management.html
+ (needs remote-management secret-key + allow-remote: true; see README)
 =========================================================
 BANNER
 

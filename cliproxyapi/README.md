@@ -16,9 +16,14 @@ OAuth sessions through standard OpenAI- or Anthropic-shaped HTTP endpoints. The
 addon runs the server alongside Home Assistant, persisting OAuth tokens and
 config under `/config/cliproxyapi/`.
 
-A second process — an `ttyd` web terminal exposed via HA ingress — is the
-recommended way to bootstrap OAuth credentials. No SSH, no Samba copy, no
-local CLIProxyAPI install required.
+There are two ways to log in to providers, neither needing SSH, Samba or a
+local CLIProxyAPI install:
+
+- **Web management panel (recommended)** — upstream's browser UI at
+  `http://<ha-ip>:8317/management.html`. Click a provider, sign in, done.
+- **Web terminal (fallback)** — a `ttyd` shell behind HA ingress
+  (**Open Web UI**) with `*-login` helpers. Needed for Gemini, and handy for
+  `edit-config` and troubleshooting.
 
 ## Installation
 
@@ -36,7 +41,43 @@ This add-on release builds upstream CLIProxyAPI `v8.0.4` by default. To pin a
 different upstream version, change the `CLIPROXYAPI_VERSION` default in
 [Dockerfile](Dockerfile) before installing.
 
-## First-time setup: OAuth via the in-addon web terminal
+## First-time setup
+
+### 1. Enable the web management panel (once)
+
+1. With the addon running, click **Open Web UI** and run `edit-config`.
+2. Under `remote-management:` set:
+   ```yaml
+   remote-management:
+     allow-remote: true
+     secret-key: "a-long-random-password"
+   ```
+   The plaintext key is hashed in place on the next start. Keep your own copy.
+3. Save, exit, and run `restart-api`. The addon log now shows
+   `Web panel: http://<ha-ip>:8317/management.html`.
+
+### 2. Log in to your providers
+
+1. Open `http://<ha-ip>:8317/management.html` and log in with the management
+   `secret-key`. If it asks for the server address, use `http://<ha-ip>:8317`.
+2. Go to the OAuth login section and pick a provider (Claude, Codex,
+   Antigravity, Kimi, xAI, ...). Sign in on the page that opens.
+3. If the provider finishes on a `localhost` URL that fails to load, that is
+   expected: copy the full URL from the browser's address bar and paste it
+   into the panel's callback field. No port forwarding needed.
+4. The new credential appears under the panel's auth files. CLIProxyAPI picks
+   it up automatically — no restart needed.
+
+Gemini CLI login isn't offered in the panel; use `gemini-login` in the
+terminal (see below).
+
+### 3. Get the API key for your clients
+
+In the terminal run `edit-config` and copy the key under `api-keys:`
+(generated on first boot). Add more keys or replace it with your own long,
+random secret if you like, then `restart-api`.
+
+## Alternative: log in via the web terminal
 
 1. With the addon running, click **Open Web UI**. A terminal opens in your
    browser, authenticated via HA ingress. A banner lists the available
@@ -62,12 +103,7 @@ different upstream version, change the `CLIPROXYAPI_VERSION` default in
 4. `list-auths` should now show `*.json` files in
    `/config/cliproxyapi/.cli-proxy-api/`.
 
-5. Grab the bearer token your clients will use. In the same terminal run
-   `edit-config` and copy the key under `api-keys:` (generated on first
-   boot). Add more keys or replace it with your own long, random secret if
-   you like.
-
-6. `restart-api`. The CLIProxyAPI service bounces and picks up the new tokens
+5. `restart-api`. The CLIProxyAPI service bounces and picks up the new tokens
    and config. The API is now live on `http://<ha-ip>:8317`.
 
 ### Gemini OAuth caveat
@@ -85,8 +121,8 @@ likely fail. Two workarounds:
   `~/.cli-proxy-api/*.json` files into `/config/cliproxyapi/.cli-proxy-api/`
   on the HA host (via the SSH or Samba addon).
 
-`codex-login` is similar; prefer `codex-login` (device code flow) which
-doesn't need a callback.
+`codex-oauth-login` has the same problem; prefer `codex-login` (device code
+flow) or the web panel, neither of which needs a callback.
 
 ## Configuration
 
@@ -133,8 +169,10 @@ OAuth tokens expire; CLIProxyAPI refreshes them silently while their refresh
 tokens remain valid. If a refresh token is revoked or expires you'll see auth
 errors in the addon log. To recover:
 
-1. **Open Web UI**, re-run the relevant `*-login` command.
-2. `restart-api`.
+- **Web panel:** log in to the provider again from the OAuth login section
+  (no restart needed), or
+- **Terminal:** **Open Web UI**, re-run the relevant `*-login` command, then
+  `restart-api`.
 
 Keep a backup of `/config/cliproxyapi/` — losing the auth directory means
 re-doing the OAuth dance for every provider.
@@ -148,6 +186,14 @@ re-doing the OAuth dance for every provider.
 - The auth dir is `chmod 700` and `config.yaml` is `chmod 600` on every boot.
 - Port 8317 is exposed on your LAN and protected only by `api-keys`; don't
   forward it to the internet.
+- With `allow-remote: true` the management API and panel on 8317 are also
+  reachable from your LAN, guarded by the management `secret-key` (full admin
+  rights, including your credentials). Use a long random key; upstream bans
+  an IP for 30 minutes after repeated wrong keys. If you only log in rarely,
+  you can set `allow-remote: false` again afterwards.
+- The panel page itself is downloaded from GitHub
+  (`panel-github-repository`) on first use and auto-updated; set
+  `remote-management.disable-control-panel: true` to turn it off entirely.
 
 ## Updating CLIProxyAPI
 
