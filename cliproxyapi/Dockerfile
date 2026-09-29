@@ -4,13 +4,15 @@
 # BUILD_FROM and BUILD_ARCH are injected by the HA addon builder.
 ARG BUILD_FROM
 ARG BUILD_ARCH
-ARG CLIPROXYAPI_VERSION=main
+ARG CLIPROXYAPI_VERSION=v8.0.4
 ARG BUILD_DATE=unknown
 
 # -----------------------------------------------------------------------------
 # Stage 1: build CLIProxyAPI from source.
 # Upstream go.mod currently requires Go >= 1.26.0, so we use the matching
-# toolchain image. CLIPROXYAPI_VERSION selects the upstream release tag to clone.
+# toolchain image. CLIPROXYAPI_VERSION selects the upstream release tag to clone;
+# pin a tag (not a branch) so rebuilds are reproducible and not served from a
+# stale Docker layer cache.
 # BUILD_ARCH (aarch64 / armv7 / amd64) is mapped to GOARCH/GOARM below.
 # Global ARGs go out of scope at FROM, so we re-declare the ones we need.
 # -----------------------------------------------------------------------------
@@ -46,7 +48,8 @@ FROM ${BUILD_FROM}
 
 # ttyd: in-addon web terminal for OAuth bootstrap (exposed via HA ingress).
 # bash:  cliproxy-shell entrypoint.
-RUN apk add --no-cache ttyd bash
+# nginx: fronts ttyd so only the HA ingress proxy (172.30.32.2) can reach it.
+RUN apk add --no-cache ttyd bash nginx
 
 COPY --from=builder /out/CLIProxyAPI /usr/bin/CLIProxyAPI
 COPY cliproxyapi.example.yaml /usr/share/cliproxyapi/config.example.yaml
