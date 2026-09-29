@@ -4,7 +4,7 @@
 # BUILD_FROM and BUILD_ARCH are injected by the HA addon builder.
 ARG BUILD_FROM
 ARG BUILD_ARCH
-ARG CLIPROXYAPI_VERSION=v7.1.22
+ARG CLIPROXYAPI_VERSION=main
 ARG BUILD_DATE=unknown
 
 # -----------------------------------------------------------------------------
