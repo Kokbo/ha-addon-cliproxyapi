@@ -1,10 +1,13 @@
 #!/usr/bin/with-contenv bashio
 
-bashio::log.info "Starting ttyd auth shell on :7681 (HA ingress)"
+# Loopback only: nginx on :7681 is the sole entry point and only admits the
+# HA ingress proxy. Binding 0.0.0.0 here would expose a root shell to every
+# other addon on the internal hassio network.
+bashio::log.info "Starting ttyd auth shell on 127.0.0.1:7682 (behind nginx/ingress)"
 
 exec ttyd \
-    --port 7681 \
-    --interface 0.0.0.0 \
+    --port 7682 \
+    --interface 127.0.0.1 \
     --writable \
     --base-path / \
     /usr/local/bin/cliproxy-shell

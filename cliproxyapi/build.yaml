@@ -1,7 +1,7 @@
 build_from:
-  aarch64: ghcr.io/home-assistant/aarch64-base:3.19
-  armv7: ghcr.io/home-assistant/armv7-base:3.19
-  amd64: ghcr.io/home-assistant/amd64-base:3.19
+  aarch64: ghcr.io/home-assistant/aarch64-base:3.22
+  armv7: ghcr.io/home-assistant/armv7-base:3.22
+  amd64: ghcr.io/home-assistant/amd64-base:3.22
 # Note: `args:` in build.yaml is deprecated. The CLIPROXYAPI_VERSION default
 # lives in the Dockerfile; override it via `--build-arg` or by editing the
 # Dockerfile.

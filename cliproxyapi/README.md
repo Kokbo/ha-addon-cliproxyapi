@@ -29,10 +29,10 @@ local CLIProxyAPI install required.
    compiles the upstream Go server from source; budget several minutes on a
    CM4.
 3. Start the addon. On first boot it creates `/config/cliproxyapi/` with a
-   default config and an empty auth dir, and logs a warning telling you to
-   bootstrap OAuth.
+   default config (including one randomly generated API key) and an empty
+   auth dir.
 
-This add-on release builds upstream CLIProxyAPI `v7.1.22` by default. To pin a
+This add-on release builds upstream CLIProxyAPI `v8.0.4` by default. To pin a
 different upstream version, change the `CLIPROXYAPI_VERSION` default in
 [Dockerfile](Dockerfile) before installing.
 
@@ -62,13 +62,10 @@ different upstream version, change the `CLIPROXYAPI_VERSION` default in
 4. `list-auths` should now show `*.json` files in
    `/config/cliproxyapi/.cli-proxy-api/`.
 
-5. Before the API is useful you must also set at least one bearer token.
-   In the same terminal:
-   ```
-   edit-config
-   ```
-   replace the `your-api-key-N` placeholders under `api-keys:` with a long,
-   random secret, save, and exit.
+5. Grab the bearer token your clients will use. In the same terminal run
+   `edit-config` and copy the key under `api-keys:` (generated on first
+   boot). Add more keys or replace it with your own long, random secret if
+   you like.
 
 6. `restart-api`. The CLIProxyAPI service bounces and picks up the new tokens
    and config. The API is now live on `http://<ha-ip>:8317`.
@@ -97,9 +94,13 @@ Runtime config lives at `/config/cliproxyapi/config.yaml`. The example seeded
 on first boot has only the obvious fields enabled; everything else is
 commented out. The fields you almost certainly need to touch:
 
-- **`api-keys`** — replace placeholders with long, random secrets. Clients
-  send one of these as `Authorization: Bearer <key>` (OpenAI-shaped) or
-  `x-api-key: <key>` (Anthropic-shaped).
+- **`api-keys`** — long, random secrets. Clients send one of these as
+  `Authorization: Bearer <key>` (OpenAI-shaped) or `x-api-key: <key>`
+  (Anthropic-shaped). **Never leave `your-api-key-1/2/3` in this list:**
+  CLIProxyAPI then disables every proxy endpoint (HTTP 403, logged as
+  `unsafe example API key configured`), which clients such as Open WebUI
+  report as a network error. The addon logs an error at startup if it
+  finds them.
 - **`auth-dir`** — already preset to `/config/cliproxyapi/.cli-proxy-api`.
   Leave it alone unless you have a reason.
 
@@ -119,7 +120,7 @@ Point any OpenAI- or Anthropic-compatible client at the addon:
 Smoke test from any LAN client:
 
 ```
-curl -H "Authorization: Bearer your-api-key-1" \
+curl -H "Authorization: Bearer <your-api-key>" \
      http://<ha-ip>:8317/v1/models
 ```
 
@@ -138,12 +139,24 @@ errors in the addon log. To recover:
 Keep a backup of `/config/cliproxyapi/` — losing the auth directory means
 re-doing the OAuth dance for every provider.
 
+## Security notes
+
+- The web terminal is a root shell with access to your OAuth tokens. It is
+  only reachable through Home Assistant ingress: ttyd listens on loopback and
+  an nginx gate on the ingress port admits only the HA ingress proxy
+  (`172.30.32.2`), so other addons on the internal network can't reach it.
+- The auth dir is `chmod 700` and `config.yaml` is `chmod 600` on every boot.
+- Port 8317 is exposed on your LAN and protected only by `api-keys`; don't
+  forward it to the internet.
+
 ## Updating CLIProxyAPI
 
-The upstream version is pinned by `ARG CLIPROXYAPI_VERSION=v7.1.22` in
+The upstream version is pinned by `ARG CLIPROXYAPI_VERSION=v8.0.4` in
 [Dockerfile](Dockerfile). To upgrade:
 
-1. Edit `Dockerfile`, change the `CLIPROXYAPI_VERSION` default to the tag or
-   branch you want (e.g. `v7.4.0`).
+1. Edit `Dockerfile`, change the `CLIPROXYAPI_VERSION` default to the release
+   tag you want (e.g. `v8.1.0`). Prefer tags over branches such as `main`:
+   a branch isn't reproducible and Docker may reuse a cached clone, so a
+   rebuild can silently keep the old code.
 2. Bump `version` in [config.yaml](config.yaml) so HA offers a Rebuild.
 3. Rebuild from the addon page.
