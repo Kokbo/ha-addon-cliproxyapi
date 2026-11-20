@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.4
+
+- Drop `armv7`: Home Assistant no longer supports it (since 2025.12) and the
+  new multi-platform base images don't include it. aarch64 and amd64 are
+  unchanged.
+- Move the base image from the deprecated `build.yaml` into the Dockerfile
+  (`ghcr.io/home-assistant/base:3.22`, the multi-platform form of the same
+  image).
+- Full documentation moved from `README.md` to `DOCS.md`, so it shows on the
+  app's Documentation tab; `README.md` is now a short store introduction.
+- Add a translation for the port description.
+- `url` and `repository.yaml` now point to this repository instead of upstream.
+
 ## 0.3.3
 
 - Update CLIProxyAPI to [v8.0.79](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v8.0.79) ([changes since v8.0.4](https://github.com/router-for-me/CLIProxyAPI/compare/v8.0.4...v8.0.79)).

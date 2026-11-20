@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
-      - uses: frenck/action-addon-linter@v2
+      - uses: frenck/action-addon-linter@v2.21
         with:
           path: ./cliproxyapi
 
@@ -72,27 +72,24 @@ jobs:
           - arch: aarch64
             platform: linux/arm64
             runner: ubuntu-24.04-arm
-          # GitHub's arm64 runners can't execute 32-bit ARM, so armv7 is emulated.
-          - arch: armv7
-            platform: linux/arm/v7
-            runner: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
 
+      # The base image is the BUILD_FROM default in the Dockerfile, exactly as
+      # the Supervisor builds it (build.yaml is deprecated).
       - name: Read build settings
         id: info
         run: |
-          build_from="$(sed -nE 's/^[[:space:]]+${{ matrix.arch }}:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' cliproxyapi/build.yaml)"
           version="$(sed -nE 's/^version: "?([^"]+)"?$/\1/p' cliproxyapi/config.yaml)"
           upstream="$(sed -nE 's/^ARG CLIPROXYAPI_VERSION=(.*)$/\1/p' cliproxyapi/Dockerfile)"
-          test -n "$build_from" || { echo "::error::no build_from for ${{ matrix.arch }} in build.yaml"; exit 1; }
+          base="$(sed -nE 's/^ARG BUILD_FROM=(.*)$/\1/p' cliproxyapi/Dockerfile)"
+          test -n "$base" || { echo "::error::no ARG BUILD_FROM default in Dockerfile"; exit 1; }
           grep -qE '^  - ${{ matrix.arch }}$' cliproxyapi/config.yaml \
             || { echo "::error::${{ matrix.arch }} is not in config.yaml arch"; exit 1; }
-          echo "build_from=$build_from" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Add-on $version, CLIProxyAPI $upstream, base $build_from"
+          echo "App $version, CLIProxyAPI $upstream, base $base"
 
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
@@ -106,7 +103,6 @@ jobs:
           push: false
           tags: local/cliproxyapi:${{ matrix.arch }}
           build-args: |
-            BUILD_FROM=${{ steps.info.outputs.build_from }}
             BUILD_ARCH=${{ matrix.arch }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
           cache-from: type=gha,scope=cliproxyapi-${{ matrix.arch }}

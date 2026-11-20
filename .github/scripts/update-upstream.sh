@@ -7,8 +7,7 @@
 # A release qualifies when it is published (not a draft, not a pre-release),
 # its tag is plain vX.Y.Z, and upstream attached a linux binary for every
 # add-on arch that upstream ships binaries for (aarch64, amd64). That proves
-# upstream's own builds finished for the release. Upstream ships nothing for
-# armv7; that arch is proven only by CI compiling it (.github/workflows/ci.yaml).
+# upstream's own builds finished for the release.
 #
 # If the newest qualifying release is newer than the pin, the script updates
 # every pin, bumps the add-on patch version in config.yaml and adds a
@@ -33,7 +32,7 @@ DRY_RUN="${DRY_RUN:-0}"
 ADDON_DIR="$REPO_ROOT/cliproxyapi"
 DOCKERFILE="$ADDON_DIR/Dockerfile"
 CONFIG="$ADDON_DIR/config.yaml"
-README="$ADDON_DIR/README.md"
+README="$ADDON_DIR/DOCS.md"
 CHANGELOG="$ADDON_DIR/CHANGELOG.md"
 UPSTREAM_URL="https://github.com/$UPSTREAM_REPO"
 

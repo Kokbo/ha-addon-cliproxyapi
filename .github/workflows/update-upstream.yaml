@@ -1,7 +1,7 @@
 name: Update upstream
 
 # Daily: bump CLIProxyAPI to the newest stable release on a temporary branch,
-# run CI on that commit, then fast-forward main to it. See cliproxyapi/README.md
+# run CI on that commit, then fast-forward main to it. See cliproxyapi/DOCS.md
 # ("Updating CLIProxyAPI") for what happens on failure.
 
 on:
