@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Replace the obsolete `watchdog` option with a Docker `HEALTHCHECK` on `/healthz`.
+- Drop the redundant `boot: auto` option.
+- Upstream CLIProxyAPI releases now arrive automatically, tested in CI first.
+
 ## 0.3.1
 
 - Promote upstream's web management panel as the primary provider login flow.
