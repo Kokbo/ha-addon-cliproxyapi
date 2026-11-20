@@ -26,7 +26,7 @@ jobs:
       sha: ${{ steps.push.outputs.sha }}
       branch: ${{ steps.push.outputs.branch }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
 
@@ -84,7 +84,7 @@ jobs:
       BRANCH: ${{ needs.bump.outputs.branch }}
       LATEST: ${{ needs.bump.outputs.latest }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.bump.outputs.sha }}
           # git only pushes a fast-forward when it has main's tip and the
