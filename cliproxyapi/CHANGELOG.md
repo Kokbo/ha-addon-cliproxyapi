@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- Update CLIProxyAPI to [v8.0.79](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v8.0.79) ([changes since v8.0.4](https://github.com/router-for-me/CLIProxyAPI/compare/v8.0.4...v8.0.79)).
+
 ## 0.3.2
 
 - Replace the obsolete `watchdog` option with a Docker `HEALTHCHECK` on `/healthz`.
