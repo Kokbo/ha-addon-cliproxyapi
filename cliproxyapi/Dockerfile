@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.6
 
 # Global ARGs — declared before any FROM so they are usable in FROM lines.
-# BUILD_FROM and BUILD_ARCH are injected by the HA addon builder.
-ARG BUILD_FROM
+# BUILD_FROM is the multi-platform HA base image (formerly build_from in the
+# deprecated build.yaml). BUILD_ARCH (amd64 / aarch64) is passed by the
+# Supervisor and by CI.
+ARG BUILD_FROM=ghcr.io/home-assistant/base:3.22
 ARG BUILD_ARCH
 ARG CLIPROXYAPI_VERSION=v8.0.79
 ARG BUILD_DATE=unknown
@@ -13,7 +15,7 @@ ARG BUILD_DATE=unknown
 # toolchain image. CLIPROXYAPI_VERSION selects the upstream release tag to clone;
 # pin a tag (not a branch) so rebuilds are reproducible and not served from a
 # stale Docker layer cache.
-# BUILD_ARCH (aarch64 / armv7 / amd64) is mapped to GOARCH/GOARM below.
+# BUILD_ARCH (aarch64 / amd64) is mapped to GOARCH below.
 # Global ARGs go out of scope at FROM, so we re-declare the ones we need.
 # -----------------------------------------------------------------------------
 FROM golang:1.26-alpine AS builder
@@ -30,12 +32,11 @@ RUN git clone --depth=1 --branch "${CLIPROXYAPI_VERSION}" \
     && git rev-parse HEAD > /src/.commit
 
 RUN case "${BUILD_ARCH}" in \
-      aarch64) GOARCH=arm64; GOARM= ;; \
-      amd64)   GOARCH=amd64; GOARM= ;; \
-      armv7)   GOARCH=arm;   GOARM=7 ;; \
+      aarch64) GOARCH=arm64 ;; \
+      amd64)   GOARCH=amd64 ;; \
       *) echo "Unsupported BUILD_ARCH: ${BUILD_ARCH}" >&2; exit 1 ;; \
     esac && \
-    export GOARCH GOARM && \
+    export GOARCH && \
     CGO_ENABLED=0 GOOS=linux go build \
       -ldflags="-s -w -X 'main.Version=${CLIPROXYAPI_VERSION}' -X 'main.Commit=$(cat /src/.commit)' -X 'main.BuildDate=${BUILD_DATE}'" \
       -o /out/CLIProxyAPI \
@@ -45,6 +46,11 @@ RUN case "${BUILD_ARCH}" in \
 # Stage 2: HA-base runtime image
 # -----------------------------------------------------------------------------
 FROM ${BUILD_FROM}
+
+LABEL \
+    org.opencontainers.image.title="Home Assistant App: CLIProxyAPI" \
+    org.opencontainers.image.description="OpenAI/Claude-compatible API proxy for OAuth subscriptions, with an ingress auth shell" \
+    org.opencontainers.image.source="https://github.com/Kokbo/ha-addon-cliproxyapi"
 
 # ttyd: in-addon web terminal for OAuth bootstrap (exposed via HA ingress).
 # bash:  cliproxy-shell entrypoint.

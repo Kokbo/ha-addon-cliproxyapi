@@ -44,6 +44,6 @@ if grep -qE '^[[:space:]]+secret-key:[[:space:]]*"?[^"[:space:]#]' "${CONFIG_FIL
         bashio::log.info "Web panel:  secret-key is set but allow-remote is false; set allow-remote: true to use http://<ha-ip>:8317/management.html from your LAN."
     fi
 else
-    bashio::log.info "Web panel:  disabled. Set remote-management secret-key + allow-remote: true to log in to providers from your browser (see README)."
+    bashio::log.info "Web panel:  disabled. Set remote-management secret-key + allow-remote: true to log in to providers from your browser (see the Documentation tab)."
 fi
 bashio::log.info "Auth shell: click \"Open Web UI\" for the terminal (edit-config, gemini-login, ...)."

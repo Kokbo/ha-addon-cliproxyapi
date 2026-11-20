@@ -1,0 +1,4 @@
+network:
+  8317/tcp: >-
+    CLIProxyAPI HTTP API (OpenAI/Claude-compatible). Protected by the api-keys in
+    config.yaml; don't forward this port to the internet.
