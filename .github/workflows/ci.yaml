@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit SHA to test (empty = the selected branch)
+        type: string
+        required: false
+        default: ""
+  workflow_call:
+    inputs:
+      ref:
+        description: Branch, tag or commit SHA to test (empty = the caller's ref)
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Add-on linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: frenck/action-addon-linter@v2
+        with:
+          path: ./cliproxyapi
+
+  shell:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Syntax and shellcheck
+        run: |
+          mapfile -t files < <(ls .github/scripts/*.sh \
+            cliproxyapi/rootfs/etc/cont-init.d/* \
+            cliproxyapi/rootfs/etc/services.d/*/run \
+            cliproxyapi/rootfs/usr/local/bin/*)
+          for f in "${files[@]}"; do bash -n "$f"; done
+          shellcheck --shell=bash "${files[@]}"
+          echo "Checked ${#files[@]} scripts"
+      - name: Test update-upstream.sh with sample data
+        run: .github/scripts/test-update-upstream.sh
+      - name: Run update-upstream.sh against upstream (dry run)
+        env:
+          DRY_RUN: "1"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/update-upstream.sh
+
+  build:
+    name: Build and start (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: aarch64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+          # GitHub's arm64 runners can't execute 32-bit ARM, so armv7 is emulated.
+          - arch: armv7
+            platform: linux/arm/v7
+            runner: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Read build settings
+        id: info
+        run: |
+          build_from="$(sed -nE 's/^[[:space:]]+${{ matrix.arch }}:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' cliproxyapi/build.yaml)"
+          version="$(sed -nE 's/^version: "?([^"]+)"?$/\1/p' cliproxyapi/config.yaml)"
+          upstream="$(sed -nE 's/^ARG CLIPROXYAPI_VERSION=(.*)$/\1/p' cliproxyapi/Dockerfile)"
+          test -n "$build_from" || { echo "::error::no build_from for ${{ matrix.arch }} in build.yaml"; exit 1; }
+          grep -qE '^  - ${{ matrix.arch }}$' cliproxyapi/config.yaml \
+            || { echo "::error::${{ matrix.arch }} is not in config.yaml arch"; exit 1; }
+          echo "build_from=$build_from" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Add-on $version, CLIProxyAPI $upstream, base $build_from"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./cliproxyapi
+          platforms: ${{ matrix.platform }}
+          load: true
+          push: false
+          tags: local/cliproxyapi:${{ matrix.arch }}
+          build-args: |
+            BUILD_FROM=${{ steps.info.outputs.build_from }}
+            BUILD_ARCH=${{ matrix.arch }}
+            BUILD_VERSION=${{ steps.info.outputs.version }}
+          cache-from: type=gha,scope=cliproxyapi-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=cliproxyapi-${{ matrix.arch }}
+
+      - name: Start add-on and wait for /healthz
+        run: |
+          data="$RUNNER_TEMP/data" config="$RUNNER_TEMP/config"
+          mkdir -p "$data" "$config"
+          echo '{}' > "$data/options.json"
+          docker run -d --name addon --platform ${{ matrix.platform }} \
+            -p 127.0.0.1:8317:8317 -v "$data:/data" -v "$config:/config" \
+            local/cliproxyapi:${{ matrix.arch }}
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 5 http://127.0.0.1:8317/healthz; then
+              echo; echo "healthz OK after ~$((i * 2))s"
+              sudo test -s "$config/cliproxyapi/config.yaml" \
+                || { echo "::error::config.yaml was not seeded"; exit 1; }
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' addon)" != true ]; then
+              echo "::error::container exited"; exit 1
+            fi
+            sleep 2
+          done
+          echo "::error::/healthz did not respond within 180s"
+          exit 1
+
+      - name: Container log
+        if: always()
+        run: docker logs addon 2>&1 || true

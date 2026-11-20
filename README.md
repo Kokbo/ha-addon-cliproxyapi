@@ -27,5 +27,13 @@ Claude Code, Codex, Gemini, Grok/xAI, and other OAuth subscriptions.
 2. **Settings → Add-ons → Add-on Store**, three-dot menu → **Check for
    updates**. The addon shows up under "Local add-ons".
 
+## Updates
+
+New stable CLIProxyAPI releases are picked up automatically: a daily workflow
+bumps the add-on, builds and starts it for every arch, and only then updates
+`main`. See
+[Updating CLIProxyAPI](cliproxyapi/README.md#updating-cliproxyapi) for
+failures and manual updates.
+
 Tested target: Home Assistant Yellow (CM4, `aarch64`). The build also targets
 `armv7` and `amd64`.

@@ -198,11 +198,41 @@ re-doing the OAuth dance for every provider.
 ## Updating CLIProxyAPI
 
 The upstream version is pinned by `ARG CLIPROXYAPI_VERSION=v8.0.4` in
-[Dockerfile](Dockerfile). To upgrade:
+[Dockerfile](Dockerfile). Home Assistant offers an update whenever `version`
+in [config.yaml](config.yaml) changes; updating rebuilds the add-on on your
+device.
 
-1. Edit `Dockerfile`, change the `CLIPROXYAPI_VERSION` default to the release
-   tag you want (e.g. `v8.1.0`). Prefer tags over branches such as `main`:
-   a branch isn't reproducible and Docker may reuse a cached clone, so a
-   rebuild can silently keep the old code.
-2. Bump `version` in [config.yaml](config.yaml) so HA offers a Rebuild.
-3. Rebuild from the addon page.
+### Automatic updates
+
+A daily workflow
+([update-upstream.yaml](../.github/workflows/update-upstream.yaml)) looks for
+a newer stable upstream release (plain `vX.Y.Z`, not a pre-release, with
+upstream's linux amd64 and aarch64 binaries attached). When it finds one it:
+
+1. Bumps the pin, the add-on patch version and [CHANGELOG.md](CHANGELOG.md),
+   and pushes that commit to a temporary branch `update-cliproxyapi-<version>`.
+2. Runs CI on it: the add-on linter, then building and starting the add-on for
+   aarch64, armv7 and amd64.
+3. If CI passes, fast-forwards `main` to that commit and deletes the branch.
+
+If CI fails, `main` is left alone and the branch is kept so you can look at
+the failed run. Runs skip a version whose branch already exists, so **delete
+the branch to retry** (the next daily run, or **Actions → Update upstream →
+Run workflow**). A newer upstream release gets its own branch and is tried
+anyway. If `main` moved while the run was going, the branch is deleted and the
+next run retries on its own.
+
+### By hand
+
+From a checkout of this repo:
+
+```sh
+.github/scripts/update-upstream.sh   # newest stable release; edits, doesn't commit
+git commit -am "Update CLIProxyAPI" && git push
+```
+
+Or edit by hand: change the `CLIPROXYAPI_VERSION` default in the Dockerfile
+to a release tag (prefer tags over branches such as `main`: a branch isn't
+reproducible and Docker may reuse a cached clone), update the two version
+mentions in this README, bump `version` in config.yaml and add a CHANGELOG
+entry. Then rebuild from the add-on page.
