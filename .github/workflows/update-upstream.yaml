@@ -1,0 +1,109 @@
+name: Update upstream
+
+# Daily: bump CLIProxyAPI to the newest stable release on a temporary branch,
+# run CI on that commit, then fast-forward main to it. See cliproxyapi/README.md
+# ("Updating CLIProxyAPI") for what happens on failure.
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-upstream
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump upstream version
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.update.outputs.latest }}
+      base: ${{ steps.push.outputs.base }}
+      sha: ${{ steps.push.outputs.sha }}
+      branch: ${{ steps.push.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Look for a newer upstream release
+        id: update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/update-upstream.sh
+
+      - name: Push bump commit to a temporary branch
+        id: push
+        if: steps.update.outputs.updated == 'true'
+        env:
+          CURRENT: ${{ steps.update.outputs.current }}
+          LATEST: ${{ steps.update.outputs.latest }}
+          ADDON_VERSION: ${{ steps.update.outputs.addon_version }}
+        run: |
+          branch="update-cliproxyapi-$LATEST"
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "::warning::Branch $branch already exists: an earlier attempt for $LATEST failed. Delete the branch to retry."
+            exit 0
+          fi
+          base="$(git rev-parse HEAD)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A cliproxyapi
+          git commit -q -m "Update CLIProxyAPI to $LATEST (add-on $ADDON_VERSION)" \
+            -m "Changes: https://github.com/router-for-me/CLIProxyAPI/compare/$CURRENT...$LATEST"
+          git push origin "HEAD:refs/heads/$branch"
+          {
+            echo "base=$base"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "branch=$branch"
+          } >> "$GITHUB_OUTPUT"
+          echo "Pushed $branch for CI"
+
+  test:
+    name: CI
+    needs: bump
+    if: needs.bump.outputs.sha != ''
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yaml
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+
+  release:
+    name: Fast-forward main
+    needs: [bump, test]
+    if: needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      BASE: ${{ needs.bump.outputs.base }}
+      SHA: ${{ needs.bump.outputs.sha }}
+      BRANCH: ${{ needs.bump.outputs.branch }}
+      LATEST: ${{ needs.bump.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.bump.outputs.sha }}
+
+      - name: Fast-forward main and delete the branch
+        run: |
+          main_moved() {
+            [ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$BASE" ]
+          }
+          give_up() {
+            git push origin --delete "$BRANCH" || true
+            echo "::warning::main moved while testing $LATEST; deleted $BRANCH, the next run retries."
+            exit 0
+          }
+          main_moved && give_up
+          # A plain (non-force) push only succeeds as a fast-forward.
+          if ! git push origin "$SHA:refs/heads/main"; then
+            main_moved && give_up
+            echo "::error::Could not push $SHA to main (branch protection?). Kept $BRANCH."
+            exit 1
+          fi
+          git push origin --delete "$BRANCH"
+          echo "main is now CLIProxyAPI $LATEST ($SHA)"

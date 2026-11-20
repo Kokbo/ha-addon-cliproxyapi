@@ -1,5 +1,5 @@
 name: CLIProxyAPI
-version: "0.3.1"
+version: "0.3.2"
 slug: cliproxyapi
 description: >-
   Wraps router-for-me/CLIProxyAPI as a Home Assistant addon. Exposes an
@@ -12,9 +12,7 @@ arch:
   - armv7
   - amd64
 startup: services
-boot: auto
 init: false
-watchdog: "tcp://[HOST]:[PORT:8317]"
 ports:
   "8317/tcp": 8317
 ports_description:

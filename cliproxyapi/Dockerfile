@@ -64,5 +64,9 @@ RUN chmod +x \
 # API on the LAN, ttyd auth shell behind HA ingress on 7681.
 EXPOSE 8317 7681
 
+# Supervisor's watchdog restarts the add-on when this turns unhealthy.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS -o /dev/null http://127.0.0.1:8317/healthz || exit 1
+
 # No CMD — HA base image's s6-overlay init runs /etc/cont-init.d/* once,
 # then supervises every service in /etc/services.d/.
