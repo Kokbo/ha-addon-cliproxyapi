@@ -37,7 +37,7 @@ local CLIProxyAPI install:
    default config (including one randomly generated API key) and an empty
    auth dir.
 
-This add-on release builds upstream CLIProxyAPI `v8.0.79` by default. To pin a
+This add-on release builds upstream CLIProxyAPI `v8.0.80` by default. To pin a
 different upstream version, change the `CLIPROXYAPI_VERSION` default in
 [Dockerfile](Dockerfile) before installing.
 
@@ -197,7 +197,7 @@ re-doing the OAuth dance for every provider.
 
 ## Updating CLIProxyAPI
 
-The upstream version is pinned by `ARG CLIPROXYAPI_VERSION=v8.0.79` in
+The upstream version is pinned by `ARG CLIPROXYAPI_VERSION=v8.0.80` in
 [Dockerfile](Dockerfile). Home Assistant offers an update whenever `version`
 in [config.yaml](config.yaml) changes; updating rebuilds the add-on on your
 device.
